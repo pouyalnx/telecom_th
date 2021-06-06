@@ -1,7 +1,9 @@
 from telethon import TelegramClient
+
 from telethon.tl.functions.contacts import GetContactsRequest
 from telethon.tl.types.contacts import Contacts
 from telethon.tl.types import User
+from telethon.tl.types import Dialog
 ####################################################################
 def get(val:str):
     if val:
@@ -22,11 +24,27 @@ def contact2entity(usr): #first_name-last_name id username phone
         return "+"+usr[3]
     return ""
 
+def chat2entity(usr): #id title
+    if usr[0]!="":
+        return int(usr[0])
+    return ""
+
 ####################################################################
 # commands
 
 key_contacts="contacts"
+key_chats_id="chat_id"
 stack[key_contacts]=[]
+stack[key_chats_id]=[]
+#####################################################################
+#async functions
+async def menu_chat(data:list,client:TelegramClient):
+    async for dialog in client.iter_dialogs():
+        dialog:Dialog
+        for pat in data:
+            if pat.lower() in  dialog.title.lower():
+                stack[key_chats_id].append([get(dialog.title),get(dialog.id)])
+
 
 
 #####################################################################
@@ -41,7 +59,7 @@ print("telegram connected...")
 
 
 while True:
-    print("enter command\n\texit\n\tcontacts <pattern>\n\tsend <index> <text|file> <msg|filename>")
+    print("enter command\n\texit\n\tcontacts <pattern>\n\tsend <index> <text|file> <msg|filename>\n\tchat <pattern>")
     data=input().split(" ")
     cmd=data.pop(0)
     ###########################################################################################################################
@@ -91,6 +109,12 @@ while True:
             if entity=="":
                 print("this user have no connect line.")
                 continue
+        elif len(usr)>2 and usr[0]=='c' and usr[1:].isdigit() and int(usr[1:])>=0 and len(stack[key_chats_id])>int(usr[1:]):
+            usr=stack[key_chats_id][int(usr[1:])]
+            entity=chat2entity(usr)
+            if entity=="":
+                print("this user have no connect line.")
+                continue
         else:
             print("unable to find user.")
             continue
@@ -99,16 +123,35 @@ while True:
         if typ=="file":
             fname=" ".join(data)
             try:
-                f=open(fname)
+                f=open(fname,'rb')
             except:
                 print("Cant find this file.")
                 continue
+            with client:
+                client.loop.run_until_complete(client.send_message(entity,file=f))
+            f.close()
         elif typ=="text":
             msg=" ".join(data)
+            with client:
+                client.loop.run_until_complete(client.send_message(entity,msg))
+
         else:
             print("unkown message type.")
             continue
+    #############################################################################################################################
+    elif cmd=="chat":
+        if data==[]:
+            data.append("")
+        stack[key_chats_id]=[]
 
+        with client:
+            client.loop.run_until_complete(menu_chat(data,client))
 
-
+        print("|\tindex\t|\t")
+        for i in range(len(stack[key_chats_id])):
+            txt=""
+            for info in stack[key_chats_id][i]:
+                txt+=f"{info} "
+            print(f"|\tc{i}\t|\t{txt}")    
+        print(f"results {len(stack[key_chats_id])}")
 
