@@ -70,7 +70,7 @@ import asyncio
 async def handler(client):
     while True:
         print("enter command\n\texit\n\tcontacts <pattern>\n\tsend <index> <text|file> <msg|filename>\n\tchat <pattern>")
-        data=await asyncio.sys.stdin.read().split(" ")
+        data=input().split(" ")
         cmd=data.pop(0)
         ###########################################################################################################################
         if cmd=="exit":
@@ -83,11 +83,10 @@ async def handler(client):
             #######################################################################################################################
             # load users
             if contacts==[]:
-                with client:
-                    result:Contacts=await client(GetContactsRequest(0))
-                    for user in result.users:
-                        user:User
-                        contacts.append([get(user.first_name)+" "+get(user.last_name),get(user.id),get(user.username),get(user.phone)])
+                result:Contacts=await client(GetContactsRequest(0))
+                for user in result.users:
+                    user:User
+                    contacts.append([get(user.first_name)+" "+get(user.last_name),get(user.id),get(user.username),get(user.phone)])
             ########################################################################################################################               
             stack[key_contacts]=[]
             if data==[]:
@@ -137,13 +136,12 @@ async def handler(client):
                 except:
                     print("Cant find this file.")
                     continue
-                with client:
-                    client.loop.run_until_complete(client.send_message(entity,file=f))
+                
+                await client.send_message(entity,file=f)
                 f.close()
             elif typ=="text":
                 msg=" ".join(data)
-                with client:
-                    client.loop.run_until_complete(client.send_message(entity,msg))
+                await client.send_message(entity,msg)
 
             else:
                 print("unkown message type.")
@@ -154,8 +152,7 @@ async def handler(client):
                 data.append("")
             stack[key_chats_id]=[]
 
-            with client:
-                client.loop.run_until_complete(menu_chat(data,client))
+            await menu_chat(data,client)
 
             print("|\tindex\t|\t")
             for i in range(len(stack[key_chats_id])):
