@@ -66,11 +66,22 @@ async def menu_chat(data:list,client:TelegramClient):
 
 #####################################################################
 import asyncio
+import threading
+
+async def ainput():
+    loop=asyncio.get_event_loop()
+    fut=loop.create_future()
+    def _run():
+        inp=input()
+        loop.call_soon_threadsafe(fut.set_result,inp)
+    threading.Thread(target=_run,daemon=True).start()
+    return await fut
+
 ###############################################################################################################################
 async def handler(client):
     while True:
         print("enter command\n\texit\n\tcontacts <pattern>\n\tsend <index> <text|file> <msg|filename>\n\tchat <pattern>")
-        data=input().split(" ")
+        data=(await ainput()).split(" ")
         cmd=data.pop(0)
         ###########################################################################################################################
         if cmd=="exit":
