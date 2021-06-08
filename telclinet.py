@@ -184,6 +184,7 @@ async def handler(client):
                             checked.append(chat_id)
                             cnt=stack[key_new_message].count(chat_id)
                             async for msg in client.iter_messages(chat_id,from_user=chat_id,):
+                                print(type(msg))
                                 if cnt==0:
                                     break
                                 cnt-=1
