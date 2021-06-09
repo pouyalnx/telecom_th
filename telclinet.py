@@ -3,7 +3,9 @@ from telethon.tl.functions.contacts import GetContactsRequest
 from telethon.tl.types.contacts import Contacts
 from telethon.tl.types import User
 from telethon.tl.types import Dialog
+from telethon.tl.patched import Message
 from telethon.events import NewMessage
+
 ###################################################################
 api_id = 5910285
 api_hash = "24e02b08be3f6a8085264780efb57af9"
@@ -80,13 +82,15 @@ async def ainput():
 ###############################################################################################################################
 async def handler(client):
     while True:
+        print("********************************************")
         print("enter command\n\texit\n\tcontacts <pattern>\n\tsend <index> <text|file> <msg|filename>\n\tchat <pattern>\n\tinbox [clr]")
+        print("--------------------------------------------")
         data=(await ainput()).split(" ")
         cmd=data.pop(0)
         ###########################################################################################################################
         if cmd=="exit":
             print("exiting...")
-            client.disconnect()
+            await client.disconnect()
             #if we save json it so good
             break
         ###########################################################################################################################
@@ -129,12 +133,19 @@ async def handler(client):
                 if entity=="":
                     print("this user have no connect line.")
                     continue
-            elif len(usr)>2 and usr[0]=='c' and usr[1:].isdigit() and int(usr[1:])>=0 and len(stack[key_chats_id])>int(usr[1:]):
+            elif len(usr)>=2 and usr[0]=='c' and usr[1:].isdigit() and int(usr[1:])>=0 and len(stack[key_chats_id])>int(usr[1:]):
                 usr=stack[key_chats_id][int(usr[1:])]
                 entity=chat2entity(usr)
                 if entity=="":
                     print("this user have no connect line.")
                     continue
+            elif len(usr)>=2 and usr[0]=='i' and usr[1:].isdigit() and int(usr[1:])>=0 and len(stack[key_new_message_id])>int(usr[1:]):
+                usr=stack[key_new_message_id][int(usr[1:])]
+                entity=chat2entity(usr)
+                print(entity)
+                if entity=="":
+                    print("this user have no connect line.")
+                    continue            
             else:
                 print("unable to find user.")
                 continue
@@ -183,19 +194,22 @@ async def handler(client):
                         if not(chat_id in checked):
                             checked.append(chat_id)
                             cnt=stack[key_new_message].count(chat_id)
+                            print("id\tusername\tfirst_name last_name\ttext") 
                             async for msg in client.iter_messages(chat_id,from_user=chat_id,):
-                                print(type(msg))
+                                msg:Message
+                                sender:User=await msg.get_sender()
                                 if cnt==0:
                                     break
                                 cnt-=1
-                                stack[key_new_message_id].append([chat_id])
-                                print(f"i{ptr}\t{msg.name}\t{msg.raw_text} {}")
+                                stack[key_new_message_id].append([get(chat_id),get(sender.username)])
+                                print(f"i{ptr}\t{get(sender.username)}\t{get(sender.first_name)} {get(sender.last_name)}\t{msg.raw_text}")
                                 ptr+=1
                 else:
-                    print("stack is empty")
+                    print("inbox is empty")
             elif data[0]=="clr":
+                stack[key_new_message_id]=[]
                 stack[key_new_message]=[] #inbox has been cleared
-                print("stack cleared")
+                print("inbox cleared")
             else:
                 print("I can't decode ur input")
 
