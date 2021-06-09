@@ -1,7 +1,7 @@
 from telethon import TelegramClient
 from telethon.tl.functions.contacts import GetContactsRequest
 from telethon.tl.types.contacts import Contacts
-from telethon.tl.types import User
+from telethon.tl.types import User,Chat
 from telethon.tl.types import Dialog
 from telethon.tl.patched import Message
 from telethon.events import NewMessage
@@ -42,29 +42,39 @@ key_contacts="contacts"
 key_chats_id="chat_id"
 key_new_message="new_message"
 key_new_message_id="new_message_id"
+key_inbox_id="inbox_id"
+key_dialog_id="dialog_id"
 
-stack[key_contacts]=[]
-stack[key_chats_id]=[]
-stack[key_new_message]=[]
-stack[key_new_message_id]=[]
+stack[key_contacts]={}
+stack[key_chats_id]={}
+stack[key_new_message_id]={}
+stack[key_inbox_id]={}
+stack[key_dialog_id]={}
+
 
 ####################################################################
+def get_at_least_one_name(name1,name2,name3):
+    if name1:
+        return f"{name1}"
+    elif name2:
+        return f"{name2}"
+    elif name3:
+        return f"{name3}"
+    return "[u[k[no]w]n]"
+
+####################################################################
+inbox=[]
+
 #events
 @client.on(NewMessage(incoming=True))
 async def newMessage(event:NewMessage.Event):
-    stack[key_new_message].append(event.chat_id)
-    print("**icnome_message**")
+    msg:Message=event.message
+    sender:User=await msg.get_sender()
+    inbox.append([msg.chat_id,get_at_least_one_name(sender.username,sender.first_name,sender.last_name)])
+    print(f">>**icnome_message from {get_at_least_one_name(sender.username,sender.first_name,sender.last_name)}**<<")
 
 
 
-#####################################################################
-#async functions
-async def menu_chat(data:list,client:TelegramClient):
-    async for dialog in client.iter_dialogs():
-        dialog:Dialog
-        for pat in data:
-            if pat.lower() in  dialog.title.lower():
-                stack[key_chats_id].append([get(dialog.title),get(dialog.id)])
 
 #####################################################################
 import asyncio
@@ -83,7 +93,7 @@ async def ainput():
 async def handler(client):
     while True:
         print("********************************************")
-        print("enter command\n\texit\n\tcontacts <pattern>\n\tsend <index> <text|file> <msg|filename>\n\tchat <pattern>\n\tinbox [clr]")
+        print("enter command\n\texit\n\tcontacts <pattern>\n\tsend <index> <text|file> <msg|filename>\n\tdialog <pattern>\n\tinbox [clr]")
         print("--------------------------------------------")
         data=(await ainput()).split(" ")
         cmd=data.pop(0)
@@ -142,7 +152,6 @@ async def handler(client):
             elif len(usr)>=2 and usr[0]=='i' and usr[1:].isdigit() and int(usr[1:])>=0 and len(stack[key_new_message_id])>int(usr[1:]):
                 usr=stack[key_new_message_id][int(usr[1:])]
                 entity=chat2entity(usr)
-                print(entity)
                 if entity=="":
                     print("this user have no connect line.")
                     continue            
@@ -169,50 +178,65 @@ async def handler(client):
                 print("unkown message type.")
                 continue
         #############################################################################################################################
-        elif cmd=="chat":
+        elif cmd=="dialog":
             if data==[]:
                 data.append("")
-            stack[key_chats_id]=[]
+            stack[key_dialog_id]={}
 
-            await menu_chat(data,client)
+            pos=0
+            async for dialog in client.iter_dialogs():
+                dialog:Dialog
+                for pat in data:
+                    if pat.lower() in  dialog.title.lower():
+                        stack[key_dialog_id][f"d{pos}"]=[dialog.id,get(dialog.title)]
 
-            print("|\tindex\t|\t")
-            for i in range(len(stack[key_chats_id])):
+
+            print("|\tindex\t|\t info")
+            for pos,infos in stack[key_dialog_id].items():
                 txt=""
-                for info in stack[key_chats_id][i]:
+                for info in infos:
                     txt+=f"{info} "
-                print(f"|\tc{i}\t|\t{txt}")    
-            print(f"results {len(stack[key_chats_id])}")
+                print(f"|\t{pos}\t|\t{txt}")    
+            print(f"<<<<<<results {len(stack[key_dialog_id])}>>>>>>>>")
         ##############################################################################################################################
         elif cmd=="inbox":
-            if data==[]:
-                if len(stack[key_new_message]):
+            global inbox
+            if data==[] or data[0]=="list":
+                if len(inbox):
                     checked=[]
-                    stack[key_new_message_id]=[]
+                    stack[key_inbox_id]={}
+                    inbox_id=[x[0] for x in inbox]
+
                     ptr=0
-                    for chat_id in reversed(stack[key_new_message]):
+                    chat_id_pos=len(inbox_id)
+                    print("id\tsender\ttext") 
+                    for chat_id in reversed(inbox_id):
+                        chat_id_pos-=1
+                        
                         if not(chat_id in checked):
                             checked.append(chat_id)
-                            cnt=stack[key_new_message].count(chat_id)
-                            print("id\tusername\tfirst_name last_name\ttext") 
+                            cnt=inbox_id.count(chat_id)
+                            stack[key_inbox_id][f"i{ptr}"]=[inbox[chat_id_pos][0],inbox[chat_id_pos][1]] # for avoid pointers
+                            ptr+=1
+                            
+                            print(f"i{ptr}\t{inbox[chat_id_pos][1]}")
                             async for msg in client.iter_messages(chat_id,from_user=chat_id,):
-                                msg:Message
-                                sender:User=await msg.get_sender()
                                 if cnt==0:
                                     break
                                 cnt-=1
-                                stack[key_new_message_id].append([get(chat_id),get(sender.username)])
-                                print(f"i{ptr}\t{get(sender.username)}\t{get(sender.first_name)} {get(sender.last_name)}\t{msg.raw_text}")
-                                ptr+=1
+                                msg:Message
+                                print(f"\t\t\t{msg.raw_text}")
+                    
                 else:
                     print("inbox is empty")
             elif data[0]=="clr":
-                stack[key_new_message_id]=[]
-                stack[key_new_message]=[] #inbox has been cleared
+                inbox=[]
                 print("inbox cleared")
             else:
                 print("I can't decode ur input")
-
+        ######################################################################################################################################
+        elif cmd=="stack":
+            pass    
 
 #####################################################################
 client.start()
