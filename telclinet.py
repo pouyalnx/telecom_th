@@ -38,17 +38,10 @@ def chat2entity(usr): #id title
 ####################################################################
 # commands
 
-key_contacts="contacts"
-key_chats_id="chat_id"
-key_new_message="new_message"
-key_new_message_id="new_message_id"
+
 key_inbox_id="inbox_id"
 key_dialog_id="dialog_id"
 key_contacts_id="contacts_id"
-
-stack[key_contacts]={}
-stack[key_chats_id]={}
-stack[key_new_message_id]={}
 
 stack[key_inbox_id]={}
 stack[key_dialog_id]={}
@@ -96,7 +89,7 @@ async def ainput():
 async def handler(client):
     while True:
         print("********************************************")
-        print("enter command\n\texit\n\tcontacts <pattern>\n\tsend <index> <text|file> <msg|filename>\n\tdialog <pattern>\n\tinbox [clr]")
+        print("enter command\n\texit\n\tcontacts <pattern>\n\tsend <index> <text|file> <msg|filename>\n\tdialog <pattern>\n\tinbox [clr]\n\tstack [clr]")
         print("--------------------------------------------")
         data=(await ainput()).split(" ")
         cmd=data.pop(0)
@@ -229,7 +222,20 @@ async def handler(client):
                 print("I can't decode ur input")
         ######################################################################################################################################
         elif cmd=="stack":
-            pass
+            if data==[]:
+                print("-------------------------------------------------------------------")
+                for key,val in stack.items():
+                    print(f"{key}")
+                    for sub_key,sub_val in val.items():
+                        txt=""
+                        for pt in sub_val:
+                            txt+=f"{pt}\t"
+                        print(f"\t{sub_key}\t{txt}")
+            elif data[0]=="clr":
+                keys=stack.keys()
+                for key in keys:
+                    stack[key]={}
+                print("[INFO]:stack is cleared")
         else:
             print("[ERROR]:Unknown command...")    
 
