@@ -18,7 +18,7 @@ def get(val:str):
 ####################################################################
 
 stack={} # i like to have clipboard memory for stacking things like user and msgs or etc
-contacts=[]
+
 ###################################################################
 #functions
 def contact2entity(usr): #first_name-last_name id username phone
@@ -44,12 +44,15 @@ key_new_message="new_message"
 key_new_message_id="new_message_id"
 key_inbox_id="inbox_id"
 key_dialog_id="dialog_id"
+key_contacts_id="contacts_id"
 
 stack[key_contacts]={}
 stack[key_chats_id]={}
 stack[key_new_message_id]={}
+
 stack[key_inbox_id]={}
 stack[key_dialog_id]={}
+stack[key_contacts_id]={}
 
 
 ####################################################################
@@ -105,77 +108,67 @@ async def handler(client):
             break
         ###########################################################################################################################
         elif cmd=="contacts":
-            #######################################################################################################################
-            # load users
-            if contacts==[]:
-                result:Contacts=await client(GetContactsRequest(0))
-                for user in result.users:
-                    user:User
-                    contacts.append([get(user.first_name)+" "+get(user.last_name),get(user.id),get(user.username),get(user.phone)])
-            ########################################################################################################################               
-            stack[key_contacts]=[]
+            contacts=[]
+            result:Contacts=await client(GetContactsRequest(0))
+            for user in result.users:
+                user:User
+                contacts.append([get(user.id),get(user.first_name)+" "+get(user.last_name),get(user.username),get(user.phone)])
+                           
+            stack[key_contacts_id]={}
             if data==[]:
                 data.append("")
+            
+            pos=0
             for pat in data:
                 for usr in contacts:
                     for usr_info in usr:
                         if pat.lower() in usr_info.lower():
-                            stack[key_contacts].append(usr)
+                            stack[key_contacts_id][f"{pos}"]=[int(usr[0]),usr[1],usr[2],usr[3]]
+                            pos+=1
                             break
 
-            print("search Result..")
-            for i in range(len(stack[key_contacts])):
-                res=""
-                for user_info in stack[key_contacts][i]:
-                    res+=f"{user_info} "
-                print(f"{i}) {res}")
-            print(f"{len(stack[key_contacts])} result.")
+            
+            for pos,info in stack[key_contacts_id].items():
+                txt=""
+                for user_info in info:
+                    txt+=f"{user_info} "
+                print(f"{pos}) {txt}")
+            print("---------------------------------------------------------")
+            print(f"{len(stack[key_contacts_id])} result.")
         ####################################################################################################################
         elif cmd=="send":
             if len(data)<3:
-                print("too low arguments.")
+                print("[ERROR]:too low arguments.")
                 continue        
             
             usr=data.pop(0)
-            if usr.isdigit() and int(usr)>=0 and len(stack[key_contacts])>int(usr):
-                usr=stack[key_contacts][int(usr)]
-                entity=contact2entity(usr)
-                if entity=="":
-                    print("this user have no connect line.")
-                    continue
-            elif len(usr)>=2 and usr[0]=='c' and usr[1:].isdigit() and int(usr[1:])>=0 and len(stack[key_chats_id])>int(usr[1:]):
-                usr=stack[key_chats_id][int(usr[1:])]
-                entity=chat2entity(usr)
-                if entity=="":
-                    print("this user have no connect line.")
-                    continue
-            elif len(usr)>=2 and usr[0]=='i' and usr[1:].isdigit() and int(usr[1:])>=0 and len(stack[key_new_message_id])>int(usr[1:]):
-                usr=stack[key_new_message_id][int(usr[1:])]
-                entity=chat2entity(usr)
-                if entity=="":
-                    print("this user have no connect line.")
-                    continue            
+            if usr in stack[key_contacts_id]:
+                entity=stack[key_contacts_id][usr][0]
+            elif usr in stack[key_dialog_id]:
+                entity=stack[key_dialog_id][usr][0]
+            elif usr in stack[key_inbox_id]:
+                entity=stack[key_inbox_id][usr][0]         
             else:
-                print("unable to find user.")
+                print("[ERROR]:unable to find user.")
                 continue
             
+
             typ=data.pop(0)
             if typ=="file":
                 fname=" ".join(data)
                 try:
                     f=open(fname,'rb')
                 except:
-                    print("Cant find this file.")
+                    print("[ERROR]:Cant find this file.")
                     continue
-                
+            
                 await client.send_message(entity,file=f)
                 f.close()
             elif typ=="text":
                 msg=" ".join(data)
                 await client.send_message(entity,msg)
-
             else:
-                print("unkown message type.")
+                print("[ERROR]:unkown message type.")
                 continue
         #############################################################################################################################
         elif cmd=="dialog":
@@ -236,7 +229,9 @@ async def handler(client):
                 print("I can't decode ur input")
         ######################################################################################################################################
         elif cmd=="stack":
-            pass    
+            pass
+        else:
+            print("[ERROR]:Unknown command...")    
 
 #####################################################################
 client.start()
