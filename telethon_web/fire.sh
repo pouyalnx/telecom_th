@@ -1,5 +1,4 @@
 #!/bin/bash
 
-pwd
-rm .lock
+rm ".lock"
 python manage.py runserver
