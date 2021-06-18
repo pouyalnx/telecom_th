@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.views.generic import View
 from django.http import HttpRequest,HttpResponse
 import socket
-
+import json
 
 class MainView(View):
     def __init__(self, **kwargs):
@@ -10,9 +10,13 @@ class MainView(View):
 
     def get(self,request:HttpRequest): 
         msg="income queue>>>\n"
-
-        #for income in inbox_get_data():
-        #    msg+=f"{income[0]}:{income[1]}\n"     
+        line=socket.socket(socket.AF_INET,socket.SOCK_STREAM,socket.IPPROTO_TCP)
+        line.connect(('',8001))
+        data:bytes=line.recv(4096)
+        line.close()
+        msg=json.loads(data.decode('utf8'))
+        for income in msg:
+            msg+=f"{income[0]}:{income[1]}\n"     
         return HttpResponse(msg)
 
     def post(self,request:HttpRequest):
