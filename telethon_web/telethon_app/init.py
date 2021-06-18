@@ -3,8 +3,17 @@ from django.conf import settings
 from telethon.events import NewMessage
 import asyncio
 import threading
+from queue import Queue
 
-from .views import income_queue,outcome_queue
+
+def inbox_get_data():
+    data=[]
+    while not inbox.empty():
+        data.append(inbox.get_nowait())
+    return data 
+
+def outbox_put_data(data):
+    outbox.put_nowait(data)
 
 async def main_telethon(api_id,api_hash):
     print(f"[Info]:telethon started")
@@ -13,15 +22,14 @@ async def main_telethon(api_id,api_hash):
 
     @client.on(NewMessage())
     async def newmessage_event(event:NewMessage.Event):
-        print(income_queue)
-        income_queue.append([event.chat_id,event.raw_text])
+        inbox.put([event.chat_id,event.raw_text])
     
     
     
     async def holder():
         while True:
-            if len(outcome_queue):
-                req=outcome_queue.pop()
+            if not outbox.empty():
+                req=outbox.get_nowait()
                 await client.send_message(req[0],req[1])
             await asyncio.sleep(0.1)
 
@@ -47,4 +55,6 @@ try:
 except:
     with open(".lock","w") as f:
         f.write("locked")
+    inbox=Queue()
+    outbox=Queue()
     main(settings.API_ID,settings.API_HASH)
