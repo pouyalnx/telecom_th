@@ -12,26 +12,34 @@ import json
 
 async def inbox_get(addr,q:Queue):
     loop=asyncio.get_event_loop()
-    print("socket called")
     line=socket.socket(socket.AF_INET,socket.SOCK_STREAM,socket.IPPROTO_TCP)
-    print("socket opened")
     line.bind(addr)
-    print("socket created")
     line.listen()
     while True:
-        print("ready for clinets")
         (cline,_)=await loop.sock_accept(line)
-        print("one here")
         dest=[]
         while not q.empty():
             dest.append(q.get_nowait())
         dest_str=json.dumps(dest,ensure_ascii=False)
-        data=bytes(dest_str.encode('uft8'))
+        data=bytes(dest_str.encode('utf8'))
         await loop.sock_sendall(cline,data)
         cline.close()
 
 
-async def main_telethon(api_id,api_hash,inbox:Queue):
+async def outbox_put(addr,q:Queue):
+    loop=asyncio.get_event_loop()
+    line=socket.socket(socket.AF_INET,socket.SOCK_STREAM,socket.IPPROTO_TCP)
+    line.bind(addr)
+    line.listen()
+    while True:
+        (cline,_)=await loop.sock_accept(line)
+        data=await loop.sock_recv(cline,4096)
+        pkt=json.loads(data.decode('utf8'))
+        q.put(pkt)
+        cline.close()
+
+
+async def main_telethon(api_id,api_hash,inbox:Queue,outbox:Queue):
     print(f"[Info]:telethon started")
     client=TelegramClient('anon',api_id,api_hash)
     
@@ -53,18 +61,24 @@ async def main_telethon(api_id,api_hash,inbox:Queue):
     await client.run_until_disconnected()
 
 
-async def main_co(api_id,api_hash,inbox:Queue):
-    loop=asyncio.get_event_loop()
-    await loop.create_task(main_telethon(api_id,api_hash,inbox))
-    await loop.run_until_complete(inbox_get(('',8001),inbox))
 
-def main_th(api_id,api_hash,inbox:Queue):
+def main_th(api_id,api_hash,inbox:Queue,outbox:Queue):
     asyncio.set_event_loop(asyncio.new_event_loop())
-    asyncio.run(main_co(api_id,api_hash,inbox))
+    asyncio.run(main_telethon(api_id,api_hash,inbox,outbox))
+
+def stack_inbox_th(api_id,api_hash,inbox:Queue):
+    asyncio.set_event_loop(asyncio.new_event_loop())
+    asyncio.run(inbox_get(('',8001),inbox))
 
 
-def main(api_id,api_hash,inbox:Queue):
-    threading.Thread(target=main_th,args=(api_id,api_hash,inbox)).start()
+def stack_outbox_th(api_id,api_hash,outbox:Queue):
+    asyncio.set_event_loop(asyncio.new_event_loop())
+    asyncio.run(outbox_put(('',8002),outbox))
+
+def main(api_id,api_hash,inbox:Queue,outbox:Queue):
+    threading.Thread(target=main_th,args=(api_id,api_hash,inbox,outbox)).start()
+    threading.Thread(target=stack_inbox_th,args=(api_id,api_hash,inbox)).start()
+    threading.Thread(target=stack_outbox_th,args=(api_id,api_hash,outbox)).start()
 
 TCP_PIPE_INBOX_PUT_ADDR=('',8001)
 TCP_PIPE_INBOX_GET_ADDR=('',8001)
@@ -81,5 +95,5 @@ except:
         f.write("locked")
     inbox=Queue()
     outbox=Queue()
-    main(settings.API_ID,settings.API_HASH,inbox)
+    main(settings.API_ID,settings.API_HASH,inbox,outbox)
 
